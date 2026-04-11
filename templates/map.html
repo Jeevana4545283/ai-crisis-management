@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NRIP - Professional Disaster Intelligence Map</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    
+    <!-- Google Fonts: Roboto -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+
+    <style>
+        /* CSS Resets and Base Styles */
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+            font-family: 'Roboto', sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* Sidebar Styling */
+        #sidebar {
+            width: 360px;
+            background: #ffffff;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            padding: 25px;
+            overflow-y: auto;
+        }
+
+        .sidebar-header {
+            padding-bottom: 20px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .sidebar-header h1 {
+            margin: 0;
+            font-size: 1.6em;
+            font-weight: 700;
+            color: #2c3e50;
+        }
+
+        .sidebar-header p {
+            margin: 5px 0 0;
+            color: #7f8c8d;
+        }
+        
+        /* Search Box Styling */
+        .search-container {
+            position: relative;
+            margin: 25px 0;
+        }
+
+        .search-container input {
+            width: 100%;
+            padding: 12px 40px 12px 15px;
+            border-radius: 8px;
+            border: 1px solid #dcdfe6;
+            font-size: 1em;
+            box-sizing: border-box;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        
+        .search-container input:focus {
+            outline: none;
+            border-color: #4a90e2;
+            box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.2);
+        }
+
+        .search-container .fa-search {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #909399;
+        }
+
+        /* Legend Styling */
+        .legend-section {
+            padding: 20px 0;
+        }
+        
+        .legend-section h4 {
+            font-size: 1.1em;
+            font-weight: 700;
+            color: #2c3e50;
+            margin: 0 0 15px 0;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+            font-size: 1em;
+            color: #34495e;
+        }
+
+        .legend-dot {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            margin-right: 12px;
+            flex-shrink: 0;
+        }
+
+        .dot-red { background-color: #e74c3c; box-shadow: 0 0 7px #e74c3c; }
+        .dot-yellow { background-color: #f1c40f; box-shadow: 0 0 7px #f1c40f; }
+        .dot-green { background-color: #2ecc71; box-shadow: 0 0 7px #2ecc71; }
+
+        /* Map Container */
+        #map {
+            flex-grow: 1;
+            height: 100%;
+        }
+        
+        /* Leaflet Control Customization */
+        .leaflet-right { right: 15px; }
+        .leaflet-top { top: 15px; }
+        .leaflet-control-zoom-in, .leaflet-control-zoom-out {
+            width: 32px !important;
+            height: 32px !important;
+            line-height: 32px !important;
+            border-radius: 8px !important;
+            border: 1px solid #ccc !important;
+            background-color: white !important;
+        }
+        .leaflet-control-zoom-in:hover, .leaflet-control-zoom-out:hover {
+            background-color: #f4f4f4 !important;
+        }
+        
+        /* Pulsing animation for high-risk dots */
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 0.9; }
+            50% { transform: scale(1.6); opacity: 0.6; }
+        }
+        .pulse {
+            animation: pulse 2s infinite ease-out;
+        }
+        
+        /* Custom Popup Styling */
+        .leaflet-popup-content-wrapper {
+            border-radius: 8px !important;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.15) !important;
+        }
+        .leaflet-popup-content {
+            font-size: 14px;
+            margin: 15px !important;
+        }
+        .leaflet-popup-tip {
+            box-shadow: none !important;
+        }
+        
+        .popup-header {
+            font-size: 1.2em;
+            font-weight: 700;
+            margin-bottom: 8px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 8px;
+        }
+        
+        .popup-details b {
+            font-weight: 500;
+            color: #555;
+            min-width: 70px;
+            display: inline-block;
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- Sidebar Panel -->
+    <div id="sidebar">
+        <div class="sidebar-header">
+            <h1>NRIP Intel Map</h1>
+            <p>Vijayawada Command Center</p>
+        </div>
+
+        <div class="search-container">
+            <input type="text" placeholder="Search location, incident...">
+            <i class="fas fa-search"></i>
+        </div>
+
+        <div class="legend-section">
+            <h4>Live Threat Index</h4>
+            <div class="legend-item">
+                <span class="legend-dot dot-red"></span> High-Risk Zone
+            </div>
+            <div class="legend-item">
+                <span class="legend-dot dot-yellow"></span> Medium-Risk Zone
+            </div>
+            <div class="legend-item">
+                <span class="legend-dot dot-green"></span> Monitored Safe Zone
+            </div>
+        </div>
+        
+        <!-- Placeholder for more widgets -->
+        <div style="flex-grow: 1;"></div> 
+
+        <div class="sidebar-footer" style="text-align: center; color: #aaa; font-size: 0.8em;">
+            <p>&copy; 2024 National Road Infrastructure Project</p>
+        </div>
+    </div>
+
+    <!-- Map Container -->
+    <div id="map"></div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script>
+        // Initialize map
+        var map = L.map('map').setView([16.5062, 80.6480], 13);
+
+        // Position zoom control to top-right
+        L.control.zoom({ position: 'topright' }).addTo(map);
+
+        // Use a professional, light-themed tile layer
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+            subdomains: 'abcd',
+            maxZoom: 19
+        }).addTo(map);
+
+        // Utility function to generate random points
+        function generateRandomPoints(center, radius, count) {
+            var points = [];
+            for (var i = 0; i < count; i++) {
+                var angle = Math.random() * Math.PI * 2;
+                var distance = Math.sqrt(Math.random()) * radius;
+                var lng = center[1] + (distance * Math.cos(angle)) / Math.cos(L.latLng(center).lat * Math.PI / 180);
+                var lat = center[0] + distance * Math.sin(angle);
+                points.push({lat: lat, lng: lng});
+            }
+            return points;
+        }
+
+        // Define risk points data
+        var riskData = {
+            high: { color: '#e74c3c', type: 'High Risk', points: generateRandomPoints([16.5062, 80.6480], 0.05, 5) },
+            medium: { color: '#f1c40f', type: 'Medium Risk', points: generateRandomPoints([16.5062, 80.6480], 0.08, 10) },
+            low: { color: '#2ecc71', type: 'Safe Zone', points: generateRandomPoints([16.5062, 80.6480], 0.1, 15) }
+        };
+        
+        var disasterTypes = ['Flood', 'Fire', 'Cyclone', 'Infrastructure Failure', 'Accident'];
+
+        // Add circle markers to the map
+        Object.keys(riskData).forEach(function(riskLevel) {
+            var data = riskData[riskLevel];
+            data.points.forEach(function(point) {
+                var isHighRisk = riskLevel === 'high';
+                var disaster = disasterTypes[Math.floor(Math.random() * disasterTypes.length)];
+                
+                var marker = L.circleMarker([point.lat, point.lng], {
+                    radius: isHighRisk ? 9 : 7,
+                    fillColor: data.color,
+                    color: isHighRisk ? data.color : 'transparent', // No border for non-high-risk
+                    weight: 2,
+                    fillOpacity: 0.9,
+                    className: isHighRisk ? 'pulse' : ''
+                }).addTo(map);
+
+                marker.bindPopup(
+                    '<div class="popup-header" style="color:' + data.color + ';">' + data.type + '</div>' +
+                    '<div class="popup-details">' +
+                    '<b>Type:</b> ' + disaster + '<br>' +
+                    '<b>Location:</b> (' + point.lat.toFixed(4) + ', ' + point.lng.toFixed(4) + ')' +
+                    '<br><b>Status:</b> Active monitoring.' +
+                    '</div>'
+                );
+            });
+        });
+
+    </script>
+</body>
+</html>

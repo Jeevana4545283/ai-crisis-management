@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>AI Crisis Inspection</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+  <style>
+    /* General Styles */
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      margin: 0;
+      background-color: #121212;
+      background-image: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url('/static/images/aerial-top-view-of-highway-junction-interchange-road-drone-view-of-the-elevated-road-traffic-junctions-and-green-garden-transport-trucks-and-cars-driving-on-highway-infrastructure-in-moder.jpg');
+      background-size: cover;
+      background-position: center;
+      background-attachment: fixed;
+      color: #e0e0e0;
+    }
+
+    /* Header */
+    .header {
+      background: rgba(0,0,0,0.5);
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #333;
+    }
+    .header h1 {
+      font-size: 1.75rem;
+      color: #e53935; /* Red accent */
+      margin: 0;
+      font-weight: 600;
+    }
+    .header h1 i {
+      margin-right: 10px;
+    }
+
+    /* Main Container */
+    .container {
+      display: flex;
+      flex-wrap: wrap;
+      padding: 1.5rem;
+      gap: 1.5rem;
+    }
+
+    /* Column Layout */
+    .column {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+    .col-left { flex: 1; min-width: 250px; }
+    .col-center { flex: 3; min-width: 400px; }
+    .col-right { flex: 2; min-width: 300px; }
+
+    /* Box/Card Styles */
+    .box {
+      background: rgba(28, 28, 28, 0.8);
+      border: 1px solid #333;
+      padding: 1.5rem;
+      border-radius: 12px;
+      backdrop-filter: blur(5px);
+    }
+    .box h4 {
+      margin-top: 0;
+      font-size: 1.2rem;
+      color: #ff9800; /* Orange accent */
+      border-bottom: 2px solid #ff9800;
+      padding-bottom: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    /* Live Stream List */
+    .stream {
+      display: flex;
+      align-items: center;
+      padding: 0.75rem 1rem;
+      margin-bottom: 0.5rem;
+      cursor: pointer;
+      background: rgba(255, 87, 34, 0.2);
+      border-radius: 8px;
+      border: 1px solid transparent;
+      transition: all 0.3s ease;
+    }
+    .stream:hover, .stream.active {
+      background: #e53935; /* Red for hover/active */
+      color: white;
+      border-color: #ff7043;
+    }
+    .stream i {
+      margin-right: 10px;
+      font-size: 1.2rem;
+    }
+
+    /* Video & Controls */
+    #video {
+      width: 100%;
+      height: 450px;
+      border-radius: 8px;
+      border: 1px solid #444;
+      background-color: #000;
+    }
+    .controls {
+        display: flex;
+        justify-content: center;
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+    button {
+      padding: 0.75rem 1.5rem;
+      border: none;
+      cursor: pointer;
+      border-radius: 8px;
+      font-weight: bold;
+      font-size: 1rem;
+      transition: background-color 0.3s ease;
+      color: white;
+    }
+    button:disabled {
+      background-color: #555;
+      cursor: not-allowed;
+      opacity: 0.7;
+    }
+    .scan { background-color: #d32f2f; }
+    .scan:hover:not(:disabled) { background-color: #f44336; }
+    .assign { background-color: #388e3c; }
+    .assign:hover:not(:disabled) { background-color: #4caf50; }
+
+    /* Status Result */
+    .result {
+      margin-top: 1rem;
+      font-size: 1.1rem;
+      font-weight: 500;
+      text-align: center;
+      padding: 0.75rem;
+      background: rgba(0,0,0,0.3);
+      border-radius: 8px;
+    }
+    .result .fa-spinner {
+        animation: spin 1.5s linear infinite;
+    }
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    /* Weather & Map section */
+    .weather-box, .map-box {
+        text-align: center;
+    }
+    input[type="text"] {
+      padding: 0.75rem;
+      border-radius: 8px;
+      border: 1px solid #555;
+      background: #333;
+      color: #e0e0e0;
+      font-size: 1rem;
+      margin-right: 0.5rem;
+      width: calc(100% - 2rem);
+    }
+    #weatherResult {
+        margin-top: 1rem;
+    }
+    #map {
+      width: 100%;
+      height: 300px;
+      border-radius: 8px;
+      border: 1px solid #444;
+    }
+     .disaster-box {
+        font-size: 1.2rem;
+        color: #e53935;
+        font-weight: bold;
+        margin-top: 10px;
+        padding: 10px;
+        border-radius: 8px;
+        background: rgba(229, 57, 53, 0.2);
+        cursor: pointer;
+        transition: background-color 0.3s;
+     }
+     .disaster-box:hover {
+         background: rgba(229, 57, 53, 0.4);
+     }
+
+    /* AI Decision Engine Styles */
+    .ai-decision-engine {
+        text-align: left;
+    }
+
+    .decision-header {
+        color: #e53935 !important; /* Red accent */
+        border-bottom: 2px solid #e53935 !important;
+        font-size: 1.3rem !important;
+        margin-bottom: 1.5rem !important;
+    }
+
+    .decision-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .decision-list li {
+        display: flex;
+        align-items: center;
+        background: rgba(255, 255, 255, 0.05);
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 0.75rem;
+        border-left: 4px solid #388e3c; /* Green for success/action */
+    }
+
+    .decision-list li i {
+        color: #4caf50;
+        font-size: 1.2rem;
+        margin-right: 1rem;
+    }
+
+    .decision-list li span {
+        flex-grow: 1;
+        font-weight: 500;
+    }
+
+    .action-btn {
+        padding: 0.5rem 1rem;
+        border: none;
+        border-radius: 6px;
+        font-weight: bold;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+        background-color: #388e3c;
+        color: white;
+        transition: background-color 0.3s;
+    }
+
+    .action-btn:hover {
+        background-color: #4caf50;
+    }
+
+  </style>
+</head>
+
+<body>
+
+<header class="header">
+  <h1><i class="fas fa-broadcast-tower"></i> AI Crisis Inspection System</h1>
+</header>
+
+<div class="container">
+
+  <!-- Left Column -->
+  <div class="column col-left">
+    <div class="box">
+      <h4><i class="fas fa-satellite-dish"></i> Live Streams</h4>
+      <div id="stream-list">
+        <div class="stream" data-disaster="Fire" onclick="loadVideo('Q71sLS8h9a4', this)">
+          <i class="fas fa-fire"></i> Fire
+        </div>
+        <div class="stream" data-disaster="Flood" onclick="loadVideo('84ccx0EpAvw', this)">
+          <i class="fas fa-water"></i> Flood
+        </div>
+        <div class="stream" data-disaster="Cyclone" onclick="loadVideo('bMQ-nTTv4ik', this)">
+          <i class="fas fa-wind"></i> Cyclone
+        </div>
+        <div class="stream" data-disaster="Landslide" onclick="loadVideo('7MNhjmZRDFU', this)">
+          <i class="fas fa-mountain"></i> Landslide
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Center Column -->
+  <div class="column col-center">
+    <div class="box">
+        <iframe id="video" src="https://www.youtube.com/embed/Q71sLS8h9a4" allow="autoplay"></iframe>
+        <div class="controls">
+            <button class="scan" id="scanBtn" onclick="scan()">
+                <i class="fas fa-search"></i> Initialize Scan
+            </button>
+            <button class="assign" id="assignBtn" onclick="assign()">
+                <i class="fas fa-users"></i> Assign Team
+            </button>
+        </div>
+        <div class="result" id="result">
+            <i class="fas fa-info-circle"></i> Select a stream to begin...
+        </div>
+    </div>
+  </div>
+
+  <!-- Right Column -->
+  <div class="column col-right">
+      <div class="box weather-box">
+          <h4><i class="fas fa-map-marker-alt"></i> Location & Weather</h4>
+          <input type="text" id="cityInput" placeholder="Enter City Name..." onkeyup="handleCityInput(event)">
+          <div id="weatherResult" style="margin-top: 1rem;">Enter a city to see weather data.</div>
+      </div>
+      <div class="box map-box">
+          <h4 id="map-title"><i class="fas fa-globe-asia"></i> Live Map</h4>
+          <iframe id="map" src="https://maps.google.com/maps?q=India&output=embed&t=&z=5&ie=UTF8&iwloc=&output=embed"></iframe>
+      </div>
+  </div>
+
+</div>
+
+<script>
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('scanBtn').disabled = true;
+    const firstStream = document.querySelector('.stream');
+    if(firstStream) {
+        firstStream.classList.add('active');
+    }
+    document.getElementById('cityInput').value = "Vijayawada";
+    getWeather();
+});
+
+function handleCityInput(event) {
+    if (event.key === 'Enter') {
+        getWeather();
+    }
+}
+
+function updateLiveMap() {
+    let city = document.getElementById("cityInput").value;
+    if (city) {
+        document.getElementById("map-title").innerHTML = `<i class="fas fa-globe-asia"></i> ${city} Map`;
+        document.getElementById("map").src = `https://maps.google.com/maps?q=${city}&output=embed&t=&z=10&ie=UTF8&iwloc=&output=embed`;
+    }
+}
+
+function loadVideo(id, element){
+  document.querySelectorAll('.stream').forEach(el => el.classList.remove('active'));
+  element.classList.add('active');
+  document.getElementById("video").src = "https://www.youtube.com/embed/" + id + "?autoplay=1&mute=1";
+  document.getElementById("scanBtn").disabled = false;
+  document.getElementById("result").innerHTML = '<i class="fas fa-check-circle"></i> Video loaded. Ready to scan.';
+}
+
+function scan(){
+  const resultDiv = document.getElementById("result");
+  const city = document.getElementById("cityInput").value || "Vijayawada";
+  resultDiv.innerHTML = '<i class="fas fa-spinner fa-spin"></i> AI analyzing video feed for threats...';
+  document.getElementById("scanBtn").disabled = true;
+
+  const iframe = document.getElementById('video');
+  const videoSrc = iframe.src.replace('?autoplay=1&mute=1', '');
+  
+  const videoId = videoSrc.split('/').pop().split('?')[0];
+  const ytLink = `https://www.youtube.com/watch?v=${videoId}`;
+
+  const disasterMap = {
+      'Q71sLS8h9a4': 'Fire',
+      '84ccx0EpAvw': 'Flood',
+      'bMQ-nTTv4ik': 'Cyclone',
+      '7MNhjmZRDFU': 'Landslide'
+  };
+  const disasterType = disasterMap[videoId] || 'Unknown';
+  
+  fetch("/run_yolo", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ youtube_link: ytLink, disaster_type: disasterType })
+  }).then(resp => resp.json())
+  .then(data => {
+    if (data.status !== 'started') {
+        resultDiv.innerHTML = "❌ Failed to start video analysis.";
+    }
+  }).catch(err => {
+      console.error(err);
+      resultDiv.innerHTML = "❌ Error connecting to analysis server.";
+      document.getElementById("scanBtn").disabled = false;
+  });
+
+  // UI simulation for ALL events.
+  setTimeout(()=> {
+      document.getElementById("scanBtn").disabled = false;
+
+      if (disasterType === 'Fire') {
+          const hospitalSearchUrl = `https://www.google.com/maps/search/hospitals+near+${city}`;
+          resultDiv.innerHTML = `
+              <div class="ai-decision-engine">
+                  <h4 class="decision-header">🔥 AI Decision Engine: Fire Detected</h4>
+                  <ul class="decision-list">
+                      <li>
+                          <i class="fas fa-check-circle"></i> 
+                          <span>Dispatch Fire Unit Alpha</span>
+                          <button class="action-btn" onclick="alert('SUCCESS: Fire Unit Alpha has been dispatched to ${city}.')">Dispatch</button>
+                      </li>
+                      <li>
+                          <i class="fas fa-check-circle"></i> 
+                          <span>Activate Evacuation Gate B</span>
+                          <button class="action-btn" onclick="alert('SUCCESS: Evacuation Gate B has been activated.')">Activate</button>
+                      </li>
+                      <li>
+                          <i class="fas fa-check-circle"></i> 
+                          <span>Alert Nearest Hospitals</span>
+                          <a href="${hospitalSearchUrl}" target="_blank" class="action-btn">View on Map</a>
+                      </li>
+                  </ul>
+              </div>
+          `;
+      } else {
+          const disasters = {
+            "Flood": { type: "Flood", icon: "🌊" },
+            "Cyclone": { type: "Cyclone", icon: "🌪️" },
+            "Landslide": { type: "Crisis", icon: "⛰️" }
+          };
+          
+          const detectedDisaster = disasters[disasterType];
+          if (detectedDisaster) {
+            resultDiv.innerHTML = `<div class='detection-result'>✅ ${detectedDisaster.icon} ${disasterType} Detected!</div>`;
+            
+            let assignButton = document.getElementById('assignBtn');
+            assignButton.innerHTML = `<i class=\"fas fa-users\"></i> Assign ${detectedDisaster.type} Team`;
+            assignButton.onclick = function() {
+                window.location.href = `assign.html?risk=Critical&type=${detectedDisaster.type}&city=${city}`;
+            };
+          } else {
+              resultDiv.innerHTML = `✅ Analysis complete. No immediate threats detected.`;
+          }
+      }
+  }, 5000);
+}
+
+function assign(){
+    const city = document.getElementById("cityInput").value;
+    if (!city) {
+        document.getElementById("cityInput").focus();
+        return;
+    }
+
+    const activeStream = document.querySelector('.stream.active');
+    let disasterType = "Crisis";
+    if (activeStream && activeStream.dataset.disaster) {
+        disasterType = activeStream.dataset.disaster;
+    }
+
+    if (disasterType === 'Landslide') disasterType = 'Crisis';
+
+    // Use Flask route /assign
+    window.location.href = `/assign?risk=Manual&type=${disasterType}&city=${city}`;
+}
+
+function triggerAutoAssign(risk, city) {
+    if (risk.includes("EXTREME") || risk.includes("HIGH")) {
+        let disasterType = "Crisis";
+        if (risk.includes("Heatwave") || risk.includes("Fire")) disasterType = "Fire";
+        if (risk.includes("Flood") || risk.includes("Rain")) disasterType = "Flood";
+        if (risk.includes("Cyclone") || risk.includes("Storm")) disasterType = "Cyclone";
+        window.location.href = `/assign?risk=High&type=${disasterType}&city=${city}`;
+    }
+}
+
+function getWeather(){
+  const city = document.getElementById("cityInput").value;
+  const resultDiv = document.getElementById("weatherResult");
+
+  if(city === ""){
+    resultDiv.innerHTML = "<p style='color:red;'>Enter city</p>";
+    return;
+  }
+  updateLiveMap();
+  resultDiv.innerHTML = "⏳ Fetching weather...";
+
+  fetch("/get_weather", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ city: city })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if(data.error){
+      resultDiv.innerHTML = `<p style='color:red;'>${data.error}</p>`;
+      return;
+    }
+    resultDiv.innerHTML = `
+      <p>🌡 Temp: ${data.temp}°C | 💧 Humidity: ${data.humidity}% | 🌬 Wind: ${data.wind} m/s</p>
+      <p><strong>${data.description.toUpperCase()}</strong></p>
+      <div class="disaster-box" onclick="triggerAutoAssign('${data.risk}', '${city}')">
+        ${data.risk} (Click to act)
+      </div>
+    `;
+  }).catch(()=> {
+    resultDiv.innerHTML = "<p style='color:red;'>Server Error</p>";
+  });
+}
+
+function triggerAutoAssign(risk, city) {
+    if (risk.includes("EXTREME") || risk.includes("HIGH")) {
+        let disasterType = "Crisis";
+        if (risk.includes("Heatwave") || risk.includes("Fire")) disasterType = "Fire";
+        if (risk.includes("Flood") || risk.includes("Rain")) disasterType = "Flood";
+        if (risk.includes("Cyclone") || risk.includes("Storm")) disasterType = "Cyclone";
+        window.location.href = `/assign?risk=High&type=${disasterType}&city=${city}`;
+    }
+}
+
+</script>
+</body>
+</html>

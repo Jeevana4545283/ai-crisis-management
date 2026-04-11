@@ -41,7 +41,7 @@ AREAS_DATA = {
         'location_type': 'Road Infrastructure',
         'background_image': 'images/default-highway.jpg',
         'welcome_color': 'rgb(77, 190, 190)',
-        'officer_name': 'S. Rama Krishna',
+        'officer_name': 'S.Jeevana',
         'officer_title': 'District Roads Engineer (NRIP)',
         'employee_id': 'OFF-AP-123',
         'organization': 'Vijayawada Municipal Corporation',
@@ -222,7 +222,8 @@ AREAS_DATA = {
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-MODEL_PATH = os.path.join(BASE_DIR, "runs", "pothole_model", "weights", "best.pt")
+MODEL_PATH = os.path.join(BASE_DIR, "yolov8n.pt")
+
 
 if not os.path.exists(MODEL_PATH):
     raise FileNotFoundError("❌ best.pt not found! Train your model first.")
