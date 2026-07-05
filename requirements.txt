@@ -10,3 +10,6 @@ numpy
 scikit-learn
 joblib
 gunicorn
+python-dotenv
+tensorflow
+Pillow

@@ -1,249 +1,42 @@
-import subprocess
 import os
-import sys
-from flask import Flask, Response, render_template, request, redirect, url_for, session
-import datetime
-import os
-from flask import Flask, render_template, request, redirect, url_for, session, Response
-import os
-import cv2
-from ultralytics import YOLO
+import logging
+from dotenv import load_dotenv
 
-from flask import Flask, request
-import threading
-import cv2
-from ultralytics import YOLO
-import yt_dlp
+from flask import Flask, Response, render_template, request, redirect, url_for, session, jsonify
+from werkzeug.utils import secure_filename
 
+from config import DEMO_OFFICERS, AREAS_DATA
+from services.ml_service import DisasterMLService
+from services.yolo_service import YoloService
+from services.weather_service import WeatherService
+from services.notification_service import NotificationService
 
+load_dotenv()
+
+# Setup logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-app.secret_key = 'your-secret-key-here-change-in-production'
-API_KEY = "79393f3fcb67f8f5913bd0d9e5e5a890"
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "fallback_secret_key")
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Initialize Services globally
+ml_service = DisasterMLService(model_path=os.path.join(BASE_DIR, "disaster_model_best.h5"))
+ml_service.load_model()
+
+yolo_service = YoloService(model_path=os.path.join(BASE_DIR, "yolov8n.pt"))
+
+weather_service = WeatherService(api_key=os.environ.get("OPENWEATHER_API_KEY"))
+
+notification_service = NotificationService(
+    api_key=os.environ.get("VONAGE_API_KEY"),
+    api_secret=os.environ.get("VONAGE_API_SECRET")
+)
 
 def login_required():
     return "officer_id" in session
-
-# DEMO OFFICERS DATA - ONLY 5 DISTRICTS
-DEMO_OFFICERS = [
-    ("OFF-AP-123", "Andhra Pradesh", "Vijayawada", "12345"),
-    ("OFF-TS-123", "Telangana", "Hyderabad", "12345"),
-    ("OFF-TN-123", "Tamil Nadu", "Chennai", "12345"),
-    ("OFF-KA-123", "Karnataka", "Bengaluru Urban", "12345"),
-    ("OFF-MH-123", "Maharashtra", "Mumbai", "12345"),
-]
-
-# COMPLETE DYNAMIC DATA FOR 5 DISTRICTS ONLY
-AREAS_DATA = {
-    'vijayawada': {
-        'state': 'Andhra Pradesh',
-        'location': 'Vijayawada',
-        'location_type': 'Road Infrastructure',
-        'background_image': 'images/default-highway.jpg',
-        'welcome_color': 'rgb(77, 190, 190)',
-        'officer_name': 'S.Jeevana',
-        'officer_title': 'District Roads Engineer (NRIP)',
-        'employee_id': 'OFF-AP-123',
-        'organization': 'Vijayawada Municipal Corporation',
-        'jurisdiction': 'Vijayawada Urban Division',
-        'programs': 'PMGSY, CRF, NRIDP',
-        'critical_roads': '42',
-        'current_date': 'Feb 01, 2026',
-        'total_length': '1,264',
-        'highways': 'NH-16, SH-41',
-        'pmgsy_count': '2,847',
-        'total_km': '1,264',
-        'critical_count': '42',
-        'under_repair': '187',
-        'orders_count': '156',
-        'complaints_total': '89',
-        'active_contractors': '12',
-        'budget_cr': '4.2',
-        'inspections_live': 'LIVE',
-        'alert_title': 'CRF URGENT ACTION REQUIRED',
-        'alert_location': 'Benz Circle - MG Road (NH-16)',
-        'alert_details': 'Priority CRF funding | Severe pothole damage | 24hr repair deadline',
-        'alert_deadline': '24 HRS',
-        'system_status': 'NRIP System Active',
-        'last_login': 'Today 15:28',
-        'budget_info': 'CRF Budget: ₹4.2 Cr',
-        'repairs_km': '187 km',
-        'inspections_due': '67'
-    },
-    
-    'hyderabad': {
-        'state': 'Telangana',
-        'location': 'Hyderabad',
-        'location_type': 'Metro Highways',
-        'background_image': 'images/default-highway.jpg',
-        'welcome_color': 'rgb(255, 193, 7)',
-        'officer_name': 'A. Rahman',
-        'officer_title': 'Hyderabad R&B Chief Engineer',
-        'employee_id': 'OFF-TS-123',
-        'organization': 'Hyderabad Metropolitan Development',
-        'jurisdiction': 'ORR & Greater Hyderabad',
-        'programs': 'NHDP, ORR, State Roads',
-        'critical_roads': '67',
-        'current_date': 'Feb 01, 2026',
-        'total_length': '3,456',
-        'highways': 'NH-44, NH-65, ORR',
-        'pmgsy_count': '5,678',
-        'total_km': '3,456',
-        'critical_count': '67',
-        'under_repair': '456',
-        'orders_count': '678',
-        'complaints_total': '289',
-        'active_contractors': '34',
-        'budget_cr': '12.4',
-        'inspections_live': '24x7',
-        'alert_title': 'ORR TRAFFIC JAM',
-        'alert_location': 'ORR Exit 12 - Gachibowli',
-        'alert_details': 'Construction blockade | IT traffic affected | Immediate clearance',
-        'alert_deadline': '6 HRS',
-        'system_status': 'ORR System Active',
-        'last_login': 'Today 15:28',
-        'budget_info': 'NHDP Budget: ₹12.4 Cr',
-        'repairs_km': '456 km',
-        'inspections_due': '234'
-    },
-    
-    'chennai': {
-        'state': 'Tamil Nadu',
-        'location': 'Chennai',
-        'location_type': 'Metro Expressways',
-        'background_image': 'images/default-highway.jpg',
-        'welcome_color': 'rgb(76, 175, 80)',
-        'officer_name': 'R. Srinivasan',
-        'officer_title': 'Chennai Highways Director',
-        'employee_id': 'OFF-TN-123',
-        'organization': 'Chennai City Traffic Police',
-        'jurisdiction': 'Chennai Metro Area',
-        'programs': 'CMRL, NHDP, State Expressways',
-        'critical_roads': '89',
-        'current_date': 'Feb 01, 2026',
-        'total_length': '4,567',
-        'highways': 'NH-48, NH-32',
-        'pmgsy_count': '7,234',
-        'total_km': '4,567',
-        'critical_count': '89',
-        'under_repair': '678',
-        'orders_count': '1,234',
-        'complaints_total': '567',
-        'active_contractors': '56',
-        'budget_cr': '18.9',
-        'inspections_live': 'EMERGENCY',
-        'alert_title': 'MONSOON FLOODING',
-        'alert_location': 'Anna Salai - Mount Road',
-        'alert_details': 'Waterlogging critical | CBD traffic paralyzed | Pump deployment',
-        'alert_deadline': '8 HRS',
-        'system_status': 'CMRL System Active',
-        'last_login': 'Today 15:28',
-        'budget_info': 'CMRL Budget: ₹18.9 Cr',
-        'repairs_km': '678 km',
-        'inspections_due': '345'
-    },
-    
-    'bengaluru-urban': {
-        'state': 'Karnataka',
-        'location': 'Bengaluru Urban',
-        'location_type': 'Silicon Valley Roads',
-        'background_image': 'images/default-highway.jpg',
-        'welcome_color': 'rgb(33, 150, 243)',
-        'officer_name': 'N. Ravi Kumar',
-        'officer_title': 'Bengaluru BBMP Engineer',
-        'employee_id': 'OFF-KA-123',
-        'organization': 'Bruhat Bengaluru Mahanagara Palike',
-        'jurisdiction': 'BBMP 8 Zones',
-        'programs': 'NMT, BSRP, Tech Corridor',
-        'critical_roads': '156',
-        'current_date': 'Feb 01, 2026',
-        'total_length': '8,765',
-        'highways': 'NH-48, NH-44, NICE Road',
-        'pmgsy_count': '12,456',
-        'total_km': '8,765',
-        'critical_count': '156',
-        'under_repair': '1,234',
-        'orders_count': '2,345',
-        'complaints_total': '1,789',
-        'active_contractors': '89',
-        'budget_cr': '45.2',
-        'inspections_live': 'CRITICAL',
-        'alert_title': 'TECH CORRIDOR CRISIS',
-        'alert_location': 'Outer Ring Road - Marathahalli',
-        'alert_details': 'IT traffic collapse | Tech company access blocked | Emergency widening',
-        'alert_deadline': '4 HRS',
-        'system_status': 'BBMP System Active',
-        'last_login': 'Today 15:28',
-        'budget_info': 'BSRP Budget: ₹45.2 Cr',
-        'repairs_km': '1,234 km',
-        'inspections_due': '789'
-    },
-    
-    'mumbai': {
-        'state': 'Maharashtra',
-        'location': 'Mumbai',
-        'location_type': 'Financial Capital Roads',
-        'background_image': 'images/default-highway.jpg',
-        'welcome_color': 'rgb(244, 67, 54)',
-        'officer_name': 'V. Patil',
-        'officer_title': 'Mumbai BMC Road Engineer',
-        'employee_id': 'OFF-MH-123',
-        'organization': 'Brihanmumbai Municipal Corporation',
-        'jurisdiction': 'Mumbai Island & Suburban',
-        'programs': 'MMRDA, Coastal Road, Eastern Freeway',
-        'critical_roads': '234',
-        'current_date': 'Feb 01, 2026',
-        'total_length': '5,678',
-        'highways': 'Western Expressway, Eastern Freeway',
-        'pmgsy_count': '9,876',
-        'total_km': '5,678',
-        'critical_count': '234',
-        'under_repair': '2,345',
-        'orders_count': '5,678',
-        'complaints_total': '3,456',
-        'active_contractors': '123',
-        'budget_cr': '89.5',
-        'inspections_live': '24x7',
-        'alert_title': 'MONSOON COLLAPSE',
-        'alert_location': 'Bandra-Worli Sea Link Approach',
-        'alert_details': 'Monsoon damage critical | Sea link access blocked | Emergency repair',
-        'alert_deadline': '12 HRS',
-        'system_status': 'BMC System Active',
-        'last_login': 'Today 15:28',
-        'budget_info': 'MMRDA Budget: ₹89.5 Cr',
-        'repairs_km': '2,345 km',
-        'inspections_due': '1,234'
-    }
-}
-
-
-
-
-
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-MODEL_PATH = os.path.join(BASE_DIR, "yolov8n.pt")
-
-
-if not os.path.exists(MODEL_PATH):
-    raise FileNotFoundError("❌ best.pt not found! Train your model first.")
-
-# Load YOLO model once
-model = YOLO(MODEL_PATH)
-
-# Default video source (can be changed dynamically per node)
-VIDEO_SOURCES = {
-    "vijayawada": "https://www.youtube.com/watch?v=Uuaemo4RwFU",
-    "hyderabad": "https://www.youtube.com/watch?v=8JCk5M_xrBs",
-    "chennai": "https://www.youtube.com/watch?v=Lxqcg1qt0XU",
-    "bengaluru-urban": "https://www.youtube.com/watch?v=WKGK_hYnlGE",
-    "mumbai": "https://www.youtube.com/watch?v=OkQ0utdxwBY"
-}
-
-
-
-
-
 
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -255,16 +48,12 @@ def index():
             if officer_id == demo_id and password == demo_pass:
                 session["officer_id"] = officer_id
                 area = city.lower().replace(" ", "-")
+                logger.info(f"Officer {officer_id} logged in successfully.")
                 return redirect(url_for("dashboard", area=area))
 
+        logger.warning(f"Failed login attempt for officer_id: {officer_id}")
         return render_template("index.html", error="Invalid credentials")
-
     return render_template("index.html")
-
-
-# -------------------------------------------------
-# DASHBOARD
-# -------------------------------------------------
 
 @app.route("/dashboard/<area>")
 def dashboard(area):
@@ -275,6 +64,7 @@ def dashboard(area):
     data = AREAS_DATA.get(area_key)
 
     if not data:
+        logger.warning(f"Dashboard requested for unknown area: {area}")
         return redirect(url_for("dashboard", area="vijayawada"))
 
     return render_template(
@@ -284,223 +74,102 @@ def dashboard(area):
         officer_id=session["officer_id"],
     )
 
-def run_yolo_on_youtube(youtube_url):
-    # Get playable URL
-    ydl_opts = {'format': 'best'}
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(youtube_url, download=False)
-        stream_url = info['url']
-
-    cap = cv2.VideoCapture(stream_url)
-
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            break  # End of video or stream
-
-        # Keep aspect ratio
-        h, w = frame.shape[:2]
-        scale = 640 / max(h, w)
-        frame_resized = cv2.resize(frame, (int(w*scale), int(h*scale)))
-
-        results = model.predict(frame_resized, conf=0.3, verbose=False)
-        annotated = results[0].plot()
-
-        cv2.imshow("Pothole Detection", annotated)
-
-        # Press 'q' or close window
-        if cv2.waitKey(1) & 0xFF == ord("q"):
-            break
-        if cv2.getWindowProperty("Pothole Detection", cv2.WND_PROP_VISIBLE) < 1:
-            break
-
-    cap.release()
-    cv2.destroyAllWindows()
-
-from datetime import datetime
-now = datetime.now()  
-
-
 @app.route('/profile')
 def view_profile():
-    # Fetching Chief Engineer Sreeram's specific credentials
     return render_template('profile.html')
-
-import threading
 
 @app.route("/run_yolo", methods=["POST"])
 def run_yolo():
     data = request.get_json()
     yt_link = data.get("youtube_link")
     if yt_link:
-        thread = threading.Thread(target=run_yolo_on_youtube, args=(yt_link,))
-        thread.start()
-        return {"status": "started"}
-    return {"status": "failed"}
+        logger.info(f"YOLO stream requested for: {yt_link}")
+        stream_url = url_for('video_feed', youtube_url=yt_link)
+        return jsonify({"status": "started", "stream_url": stream_url})
+    return jsonify({"status": "failed", "message": "No YouTube link provided"}), 400
 
-
-
-@app.route("/run_yolo", methods=["POST"])
-def run_yolo_endpoint():
-    data = request.get_json()
-    yt_link = data.get("youtube_link")
-    if yt_link:
-        # Run YOLO in a separate thread so Flask doesn't block
-        import threading
-        thread = threading.Thread(target=run_yolo_on_youtube, args=(yt_link,))
-        thread.start()
-        return {"status": "started"}
-    return {"status": "failed"}
-
-# ✅ STEP 1: DEFINE FUNCTION FIRST
-def advanced_disaster_prediction(temp, humidity, wind, description, month, hour):
-
-    risk_score = 0
-    alerts = []
-
-    if temp >= 45:
-        risk_score += 3
-        alerts.append("🔥 Extreme Heatwave Risk")
-    elif temp >= 38:
-        risk_score += 2
-        alerts.append("🔥 High Heat Risk")
-
-    if humidity >= 90:
-        risk_score += 3
-        alerts.append("🌊 Severe Flood Risk")
-    elif humidity >= 75:
-        risk_score += 2
-        alerts.append("🌧 Heavy Rain Possibility")
-
-    if wind >= 20:
-        risk_score += 3
-        alerts.append("🌪 Cyclone / Storm Risk")
-    elif wind >= 12:
-        risk_score += 2
-        alerts.append("💨 Strong Winds Warning")
-
-    desc = description.lower()
-
-    if "thunderstorm" in desc:
-        risk_score += 3
-        alerts.append("⚡ Thunderstorm Danger")
-
-    if "rain" in desc:
-        risk_score += 2
-        alerts.append("🌧 Active Rainfall")
-
-    if "clear" in desc and temp > 40:
-        risk_score += 2
-        alerts.append("🔥 Dry Heat Fire Risk")
-
-    if "fog" in desc:
-        alerts.append("🌫 Low Visibility Alert")
-
-    if month in [6,7,8,9]:
-        if humidity > 80:
-            risk_score += 2
-            alerts.append("🌊 Monsoon Flood Risk")
-
-    if month in [3,4,5]:
-        if temp > 40:
-            risk_score += 2
-            alerts.append("🔥 Summer Heatwave")
-
-    if month in [10,11]:
-        if wind > 15:
-            risk_score += 2
-            alerts.append("🌪 Cyclone Season Alert")
-
-    if 12 <= hour <= 16 and temp > 40:
-        alerts.append("☀️ Peak Heat Hours Danger")
-
-    if 0 <= hour <= 5 and humidity > 90:
-        alerts.append("🌫 Night Fog / Moisture Risk")
-
-    if risk_score >= 8:
-        final = "🚨 EXTREME DISASTER RISK"
-    elif risk_score >= 5:
-        final = "⚠️ HIGH DISASTER RISK"
-    elif risk_score >= 3:
-        final = "🟡 MODERATE RISK"
-    else:
-        final = "🟢 LOW RISK"
-
-    return final, alerts
-    
-from flask import jsonify
-import requests
+@app.route("/api/video_feed")
+def video_feed():
+    youtube_url = request.args.get('youtube_url')
+    if not youtube_url:
+        return jsonify({"error": "No source provided"}), 400
+        
+    if not yolo_service.is_loaded:
+        return jsonify({"error": "YOLO model not loaded"}), 503
+        
+    return Response(yolo_service.generate_frames(youtube_url, is_youtube=True),
+                    mimetype='multipart/x-mixed-replace; boundary=frame')
 
 @app.route("/get_weather", methods=["POST"])
 def get_weather():
     data = request.get_json()
     city = data.get("city")
+    if not city:
+        return jsonify({"error": "City not provided"}), 400
+        
+    result, status = weather_service.get_weather_and_risk(city)
+    return jsonify(result), status
 
-    try:
-        url = f"https://api.openweathermap.org/data/2.5/weather?q={city}&appid={API_KEY}&units=metric"
-        response = requests.get(url)
-        res = response.json()
-
-        if response.status_code != 200:
-            return jsonify({"error": res.get("message", "City not found")})
-
-        temp = res["main"]["temp"]
-        humidity = res["main"]["humidity"]
-        wind = res["wind"]["speed"]
-        description = res["weather"][0]["description"]
-
-        # 🕒 GET CURRENT TIME + MONTH
-        now = datetime.now()
-        month = now.month
-        hour = now.hour
-
-        # 🚨 CALL ADVANCED AI FUNCTION
-        final_risk, alerts = advanced_disaster_prediction(
-            temp, humidity, wind, description, month, hour
-        )
-
-        return jsonify({
-            "city": res["name"],
-            "temp": temp,
-            "humidity": humidity,
-            "wind": wind,
-            "description": description,
-            "risk": final_risk,
-            "alerts": alerts
-        })
-
-    except Exception as e:
-        return jsonify({"error": str(e)})
+@app.route("/send_sms", methods=["POST"])
+def send_sms():
+    data = request.get_json()
+    city = data.get("city")
+    team = data.get("team")
     
-# -------------------------------------------------
-# MODULE ROUTES
-# -------------------------------------------------
+    if not city or not team:
+        return jsonify({"error": "Missing city or team parameters"}), 400
+        
+    result, status = notification_service.send_crisis_alert(city, team)
+    return jsonify(result), status
+
+@app.route("/api/predict_disaster", methods=["POST"])
+def api_predict_disaster():
+    if "image" not in request.files:
+        return jsonify({"error": "No image part in the request"}), 400
+        
+    file = request.files["image"]
+    if file.filename == "":
+        return jsonify({"error": "No image selected for uploading"}), 400
+        
+    if file:
+        filename = secure_filename(file.filename)
+        uploads_dir = os.path.join(BASE_DIR, "uploads")
+        os.makedirs(uploads_dir, exist_ok=True)
+        
+        filepath = os.path.join(uploads_dir, filename)
+        try:
+            file.save(filepath)
+            result, status_code = ml_service.predict(filepath)
+            
+            if os.path.exists(filepath):
+                os.remove(filepath)
+                
+            return jsonify(result), status_code
+                
+        except Exception as e:
+            logger.error(f"Failed during disaster prediction API: {e}")
+            if os.path.exists(filepath):
+                os.remove(filepath)
+            return jsonify({"error": "Internal Server Error"}), 500
 
 @app.route("/<area>/road_inspections")
 def road_inspections(area):
-    if not login_required():
-        return redirect(url_for("index"))
+    if not login_required(): return redirect(url_for("index"))
     return render_template("road_inspections.html", current_area=area)
-
 
 @app.route("/<area>/work-orders")
 def work_orders(area):
-    if not login_required():
-        return redirect(url_for("index"))
+    if not login_required(): return redirect(url_for("index"))
     return render_template("work_orders.html", current_area=area)
-
 
 @app.route("/<area>/contractors")
 def contractors(area):
-    if not login_required():
-        return redirect(url_for("index"))
+    if not login_required(): return redirect(url_for("index"))
     return render_template("contractors.html", current_area=area)
-
 
 @app.route("/<area>/budget")
 def budget(area):
-    if not login_required():
-        return redirect(url_for("index"))
+    if not login_required(): return redirect(url_for("index"))
     return render_template("budget.html", current_area=area)
 
 @app.route('/crisis_inspection')
@@ -509,78 +178,27 @@ def crisis_inspection():
 
 @app.route("/<area>/complaints")
 def complaints(area):
-    if not login_required():
-        return redirect(url_for("index"))
+    if not login_required(): return redirect(url_for("index"))
     return render_template("complaints.html", current_area=area)
-
 
 @app.route("/<area>/reports")
 def reports(area):
-    if not login_required():
-        return redirect(url_for("index"))
+    if not login_required(): return redirect(url_for("index"))
     return render_template("reports.html", current_area=area)
-
-
 
 @app.route('/assign')
 def assign():
     return render_template("assign.html")
 
-
 @app.route('/map')
 def map():
     return render_template("map.html")
 
-
-
-# -------------------------------------------------
-# LOGOUT
-# -------------------------------------------------
-
 @app.route("/logout")
 def logout():
     session.clear()
+    logger.info("User logged out.")
     return redirect(url_for("index"))
-
-
-
-from vonage import Auth, Vonage
-
-auth = Auth(api_key="587f555f", api_secret="Q8NKtyGILdbqnm2q")
-vonage_client = Vonage(auth=auth)
-
-from flask import request, jsonify
-from vonage import Auth, Vonage
-
-@app.route("/send_sms", methods=["POST"])
-def send_sms():
-    data = request.get_json()
-    city = data.get("city")
-    team = data.get("team")
-
-    try:
-        auth = Auth(api_key="587f555f", api_secret="Q8NKtyGILdbqnm2q")
-        client = Vonage(auth=auth)
-
-        message = f"🚨 ALERT!\n{team} assigned in {city}. Immediate response required."
-
-        response = client.sms.send({
-             "from_": "AI Crisis System",
-            "to": "918886667061",
-            "text": message
-        })
-
-        if response["messages"][0]["status"] == "0":
-            return jsonify({"success": True})
-        else:
-            return jsonify({"error": response["messages"][0]["error-text"]})
-
-    except Exception as e:
-        return jsonify({"error": str(e)})
-
-# -------------------------------------------------
-# RUN
-# -------------------------------------------------
 
 if __name__ == "__main__":
     app.run(debug=True)

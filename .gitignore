@@ -1,0 +1,13 @@
+.env
+.venv
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+uploads/
+runs/
+*.h5
+*.pt
+*.sqlite3
+roadguard.db
+*.log
