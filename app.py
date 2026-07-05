@@ -18,7 +18,10 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("FLASK_SECRET_KEY", "fallback_secret_key")
+secret_key = os.environ.get("FLASK_SECRET_KEY")
+if not secret_key:
+    raise RuntimeError("CRITICAL ERROR: FLASK_SECRET_KEY is missing from environment variables.")
+app.secret_key = secret_key
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -44,6 +47,8 @@ def index():
         officer_id = request.form.get("officer_id")
         password = request.form.get("password")
 
+        # SECURITY NOTE: This application currently uses mock credentials defined in config.py
+        # For production, this MUST be replaced with a secure database lookup and password hashing (e.g., bcrypt).
         for demo_id, _, city, demo_pass in DEMO_OFFICERS:
             if officer_id == demo_id and password == demo_pass:
                 session["officer_id"] = officer_id

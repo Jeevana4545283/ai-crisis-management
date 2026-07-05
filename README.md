@@ -47,6 +47,13 @@ We solved this by building a Service-Oriented Python backend that aggregates:
 - **Explainable AI (XAI)**: Includes Grad-CAM scripts to visualize *why* the MobileNetV2 model predicted a specific disaster.
 - **Clean Architecture**: Separation of concerns ensures routes, machine learning services, and external API calls are completely decoupled, maximizing testability and scalability.
 
+### Screenshots (Placeholders)
+![Dashboard Overview](https://via.placeholder.com/800x400.png?text=Dashboard+Overview+Screenshot)
+*Central dashboard displaying real-time infrastructure and weather data.*
+
+![YOLO Stream](https://via.placeholder.com/800x400.png?text=YOLO+Live+Streaming+Screenshot)
+*Live YOLOv8 bounding box detection running in the browser.*
+
 ---
 
 ## 🛠️ Tech Stack
